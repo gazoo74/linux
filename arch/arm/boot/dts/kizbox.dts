@@ -7,6 +7,7 @@
  */
 /dts-v1/;
 #include "at91sam9g20.dtsi"
+#include <dt-bindings/pwm/pwm.h>
 
 / {
 
@@ -95,31 +96,45 @@
 
 	};
 
-	leds {
-		compatible = "gpio-leds";
+	pwm: tcbpwm {
+		compatible = "atmel,tcb-pwm";
+		#pwm-cells = <3>;
+		tc-block = <1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_tcb1_tioa0
+			     &pinctrl_tcb1_tioa1
+			     &pinctrl_tcb1_tioa2
+			     &pinctrl_tcb1_tiob0>;
+	};
+
+	pwmleds {
+		compatible = "pwm-leds";
 
 		led1g {
 			label = "led1:green";
-			gpios = <&pioB 0 GPIO_ACTIVE_LOW>;
+			pwms = <&pwm 0 10000000 PWM_POLARITY_INVERTED>;
+			max-brightness = <255>;
 			linux,default-trigger = "none";
 		};
 
 		led1r {
 			label = "led1:red";
-			gpios = <&pioB 1 GPIO_ACTIVE_LOW>;
+			pwms = <&pwm 1 10000000 PWM_POLARITY_INVERTED>;
+			max-brightness = <255>;
 			linux,default-trigger = "none";
 		};
 
 		led2g {
 			label = "led2:green";
-			gpios = <&pioB 2 GPIO_ACTIVE_LOW>;
+			pwms = <&pwm 2 10000000 PWM_POLARITY_INVERTED>;
+			max-brightness = <255>;
 			linux,default-trigger = "none";
-			default-state = "on";
 		};
 
 		led2r {
 			label = "led2:red";
-			gpios = <&pioB 3 GPIO_ACTIVE_LOW>;
+			pwms = <&pwm 3 10000000 PWM_POLARITY_INVERTED>;
+			max-brightness = <255>;
 			linux,default-trigger = "none";
 		};
 	};
