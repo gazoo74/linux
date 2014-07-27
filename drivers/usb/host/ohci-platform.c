@@ -342,6 +342,7 @@ static int ohci_platform_resume(struct device *dev)
 #endif /* CONFIG_PM */
 
 static const struct of_device_id ohci_platform_ids[] = {
+	{ .compatible = "ralink,rt3xxx-ohci", },
 	{ .compatible = "generic-ohci", },
 	{ }
 };
