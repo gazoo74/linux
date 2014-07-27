@@ -898,6 +898,12 @@ config GPIO_BCM_KONA
 	help
 	  Turn on GPIO support for Broadcom "Kona" chips.
 
+config GPIO_MT7621
+	bool "Mediatek GPIO Support"
+	depends on SOC_MT7620 || SOC_MT7621
+	help
+	  Say yes here to support the Mediatek SoC GPIO device
+
 comment "USB GPIO expanders:"
 
 config GPIO_VIPERBOARD
