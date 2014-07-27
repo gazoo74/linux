@@ -409,6 +409,12 @@ config NBPFAXI_DMA
 	help
 	  Support for "Type-AXI" NBPF DMA IPs from Renesas
 
+config DMA_RALINK
+	tristate "RALINK DMA support"
+	depends on RALINK && SOC_MT7620
+	select DMA_ENGINE
+	select DMA_VIRTUAL_CHANNELS
+
 config DMA_ENGINE
 	bool
 

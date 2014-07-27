@@ -1058,6 +1058,7 @@ struct dma_chan *dma_request_slave_channel_reason(struct device *dev,
 						  const char *name);
 struct dma_chan *dma_request_slave_channel(struct device *dev, const char *name);
 void dma_release_channel(struct dma_chan *chan);
+struct dma_chan *dma_get_slave_channel(struct dma_chan *chan);
 #else
 static inline struct dma_chan *dma_find_channel(enum dma_transaction_type tx_type)
 {
