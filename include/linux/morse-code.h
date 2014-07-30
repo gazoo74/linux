@@ -72,4 +72,17 @@ static const char *to_morse(char c)
 	return NULL;
 }
 
+static char from_morse(const char *str)
+{
+	const char **s;
+
+	for (s = alpha; *s; s++) {
+		if (strcmp(*s, str) == 0) {
+			return 'A' + (s - alpha);
+		}
+	}
+
+	return '?';
+}
+
 #endif /* __LINUX_MORSE_CODE_H_INCLUDED */

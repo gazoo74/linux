@@ -525,13 +525,35 @@ config VEXPRESS_SYSCFG
 	  bus. System Configuration interface is one of the possible means
 	  of generating transactions on this bus.
 
+menuconfig MORSE
+	bool "Morse support"
+	default	n
+	help
+	  This option enables support for morse drivers.
+
+	  If unsure, say N.
+
+if MORSE
+
 config MORSE_ENCODING
 	tristate "Morse encoding driver"
 	default	n
+	depends on MORSE
 	help
 	  This option enables support for morse encoding driver.
 
 	  If unsure, say N.
+
+config MORSE_DECODING
+	tristate "Morse decoding driver"
+	default	n
+	depends on MORSE
+	help
+	  This option enables support for morse decoding driver.
+
+	  If unsure, say N.
+
+endif #MORSE
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"

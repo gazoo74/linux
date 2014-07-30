@@ -57,3 +57,4 @@ obj-$(CONFIG_GENWQE)		+= genwqe/
 obj-$(CONFIG_ECHO)		+= echo/
 obj-$(CONFIG_VEXPRESS_SYSCFG)	+= vexpress-syscfg.o
 obj-$(CONFIG_MORSE_ENCODING)	+= morse-encoding.o
+obj-$(CONFIG_MORSE_DECODING)	+= morse-decoding.o
