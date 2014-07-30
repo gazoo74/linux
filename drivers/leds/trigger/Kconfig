@@ -107,6 +107,7 @@ config LEDS_TRIGGER_MORSE
 	tristate "LED Morse Trigger"
 	depends on LEDS_TRIGGERS
 	depends on MORSE_ENCODING
+	depends on MORSE_DECODING
 	help
 	  This allows LEDs to transmit text information as a series of on-off
 	  lights.

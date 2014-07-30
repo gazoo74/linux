@@ -34,10 +34,12 @@ scm_version()
 	short=false
 
 	cd "$srctree"
+echo srctree:$srctree >&2
 	if test -e .scmversion; then
 		cat .scmversion
 		return
 	fi
+echo 1:$1 >&2
 	if test "$1" = "--short"; then
 		short=true
 	fi
@@ -132,9 +134,11 @@ collect_files()
 	echo "$res"
 }
 
+echo scm_only:$scm_only >&2
 if $scm_only; then
 	if test ! -e .scmversion; then
 		res=$(scm_version)
+echo res:$res >&2
 		echo "$res" >.scmversion
 	fi
 	exit
@@ -157,6 +161,7 @@ fi
 res="${res}${CONFIG_LOCALVERSION}${LOCALVERSION}"
 
 # scm version string if not at a tagged commit
+echo CONFIG_LOCALVERSION_AUTO:$CONFIG_LOCALVERSION_AUTO >&2
 if test "$CONFIG_LOCALVERSION_AUTO" = "y"; then
 	# full scm version string
 	res="$res$(scm_version)"
@@ -165,8 +170,10 @@ else
 	# annotated or signed tagged state (as git describe only
 	# looks at signed or annotated tags - git tag -a/-s) and
 	# LOCALVERSION= is not specified
+echo LOCALVERSION:$LOCALVERSION >&2
 	if test "${LOCALVERSION+set}" != "set"; then
 		scm=$(scm_version --short)
+echo scm:$scm >&2
 		res="$res${scm:++}"
 	fi
 fi

@@ -19,6 +19,13 @@
 
 #include "linux/morse-encoding.h"
 
+#define RELEASE
+#ifdef RELEASE
+#define DEBUG(str, ...)
+#else
+#define DEBUG(str, ...) printk(str, __VA_ARGS__)
+#endif
+
 #define timer_to_morse_encoding(timer) \
 	container_of(timer, struct morse_encoding, timer)
 
@@ -32,6 +39,7 @@ timer_morse_encoding_function(struct hrtimer *timer)
 	ktime_t time = { .tv64 = 0 };
 
 	spin_lock_irqsave(&data->lock, flags);
+	DEBUG(KERN_INFO "%s:%03u >>> data: { context: %i, (%-5s:%-5s), %3i }\n", __FUNCTION__, __LINE__, data->gap, data->mess, data->code, data->count);
 
 	if (!data || !data->message ||
 	    ((data->repeat > 0) && (data->count >= data->repeat)))
@@ -49,7 +57,6 @@ timer_morse_encoding_function(struct hrtimer *timer)
 		} else {
 			time = data->intra_gap;
 		}
-
 		data->gap = !data->gap;
 		goto exit;
 	}
@@ -64,27 +71,49 @@ timer_morse_encoding_function(struct hrtimer *timer)
 		data->mess++;
 	}
 
-	if (!data->code)
+	if (!data->code) {
+		printk(KERN_ERR "Not suppose to happen! { message: %s, code: %s, time: %i/%lli }\n", data->message, data->code, on, time.tv64);
 		time = data->word_gap;
-	else
+	}
+	else {
 		time = *data->code == '.' ? data->intra_gap : data->letter_gap;
+	}
 
 	data->gap = !data->gap;
 	on = !on;
 	data->code++;
 
 exit:
+	DEBUG(KERN_INFO "%s:%03u <<< data: { context: %i, (%-5s:%-5s), %3i }, local: { ret: (%i/%i), on: %i, time: %lli }\n", __FUNCTION__, __LINE__, data->gap, data->mess, data->code, data->count, ret, halted, on, time.tv64);
 	spin_unlock_irqrestore(&data->lock, flags);
 
-	if (time.tv64 && data->callback)
-		if (data->callback(data->user_data, on))
+	if (time.tv64 && data->callback) {
+		if (data->callback(data->user_data, on)) {
+			DEBUG(KERN_INFO "%s:%03u abort\n", __FUNCTION__, __LINE__);
 			ret =  HRTIMER_NORESTART;
+		}
+	}
+	else {
+		DEBUG(KERN_INFO "Not calling callback (time: %lli)\n", time.tv64);
+	}
 
-	if (!time.tv64)
+	if (!time.tv64) {
+		DEBUG(KERN_INFO "%s:%03u time is %lli and %s\n", __FUNCTION__, __LINE__, time.tv64, ret == HRTIMER_RESTART ? "restarts" : "no-restarts");
 		return ret;
+	}
 
-	if (ret == HRTIMER_RESTART)
+	if (ret == HRTIMER_RESTART) {
 		hrtimer_add_expires(timer, time.tv64 ? time : ktime_get());
+	}
+	else {
+		DEBUG(KERN_ERR "%s:%03u message: %s\n", __FUNCTION__, __LINE__, data->message);
+		DEBUG(KERN_ERR "%s:%03u code:    %s\n", __FUNCTION__, __LINE__, data->code);
+		DEBUG(KERN_ERR "%s:%03u mess:    %s\n", __FUNCTION__, __LINE__, data->mess);
+	}
+
+	DEBUG(KERN_ERR "%s:%03u\n", __FUNCTION__, __LINE__);
+	DEBUG(KERN_ERR "%s:%03u\n", __FUNCTION__, __LINE__);
+	DEBUG(KERN_ERR "%s:%03u\n", __FUNCTION__, __LINE__);
 
 	return ret;
 }
@@ -113,6 +142,9 @@ void morse_encoding_init(struct morse_encoding *data, void *user,
 	data->intra_gap = ktime_set(0, 333333333);
 	data->letter_gap = ktime_set(1, 000000000);
 	data->word_gap = ktime_set(2, 333333333);
+//	data->intra_gap = ktime_set(0, 500000000);
+//	data->letter_gap = ktime_set(1, 500000000);
+//	data->word_gap = ktime_set(3, 500000000);
 }
 EXPORT_SYMBOL(morse_encoding_init);
 
@@ -207,6 +239,8 @@ ssize_t morse_encoding_set_message(struct morse_encoding *data,
 	data->message = newmess;
 	if (!oldmess) {
 		data->gap = 0;
+//		data->mess = data->message;
+//		data->code = to_morse(*data->mess++);
 		data->mess = NULL;
 		data->code = NULL;
 	} else {
@@ -234,8 +268,9 @@ void morse_encoding_set_repeat(struct morse_encoding *data,
 
 	spin_lock_irqsave(&data->lock, flags);
 	data->repeat = repeat;
-	if ((data->repeat == 0) || (data->count < repeat))
+	if ((data->repeat == 0) || (data->count < repeat)) {
 		morse_encoding_start(data);
+	}
 	spin_unlock_irqrestore(&data->lock, flags);
 }
 EXPORT_SYMBOL(morse_encoding_set_repeat);
@@ -306,12 +341,13 @@ EXPORT_SYMBOL(morse_encoding_reset);
 
 static int __init morse_encoding_mod_init(void)
 {
+	printk(KERN_INFO "%s:%u %s\n", __FUNCTION__, __LINE__, __TIMESTAMP__);
 	return 0;
 }
 
 static void __exit morse_encoding_mod_exit(void)
 {
-
+	printk(KERN_INFO "%s:%u %s\n", __FUNCTION__, __LINE__, __TIMESTAMP__);
 }
 
 module_init(morse_encoding_mod_init);

@@ -19,8 +19,18 @@
 
 #include "linux/morse-decoding.h"
 
+#define RELEASE
+#ifdef RELEASE
+#define DEBUG(str, ...)
+#else
+#define DEBUG(str, ...) printk(str, __VA_ARGS__)
+#endif
+
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
+#define _(str) str, strlen(str)
+#define __cbuffer_hexdump(cbuf, ascii) cbuffer_hexdump(cbuf, #cbuf, ascii)
+#define HAVE_MARKER
 
 void cbuffer_hexdump(struct cbuffer *cbuf, const char *prefix, bool ascii)
 {
@@ -102,8 +112,9 @@ inline ssize_t ctx_push(struct ctx *ctx, const struct edge *elt)
 	if (!ctx || !elt)
 		return -EINVAL;
 
-	if (ctx->size >= sizeof(ctx->stack))
+	if (ctx->size >= sizeof(ctx->stack)) {
 		return -ENOMEM;
+	}
 
 	ctx->stack[ctx->size].time = elt->time;
 	ctx->stack[ctx->size].val = elt->val;
@@ -117,8 +128,9 @@ inline ssize_t ctx_pop(struct ctx *ctx, struct edge *elt)
 	if (!ctx || !elt)
 		return -EINVAL;
 
-	if (ctx->size == 0)
+	if (ctx->size == 0) {
 		return -ENOMEM;
+	}
 
 	*elt = ctx->stack[ctx->size];
 	ctx->size--;
@@ -131,8 +143,9 @@ inline ssize_t ctx_top(const struct ctx *ctx, struct edge *elt)
 	if (!ctx || !elt)
 		return -EINVAL;
 
-	if (ctx->size == 0)
+	if (ctx->size == 0) {
 		return -ENOMEM;
+	}
 
 	*elt = ctx->stack[ctx->size];
 
@@ -141,6 +154,12 @@ inline ssize_t ctx_top(const struct ctx *ctx, struct edge *elt)
 
 void morse_decoding_init(struct morse_decoding *data)
 {
+#ifdef TEST
+	char buf[32];
+	ssize_t size;
+	struct cbuffer *cbuf;
+#endif
+
 	if (!data)
 		return;
 
@@ -171,6 +190,154 @@ void morse_decoding_init(struct morse_decoding *data)
 	data->cbuf.first = 0;
 	data->cbuf.last = 0;
 	data->size = 0;
+
+	printk(KERN_ERR "%s:%03u ERROR: %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_srate.tv64, data->last.tv64, data->max_srate.tv64);
+	printk(KERN_ERR "%s:%03u ERROR: %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_3srate.tv64, data->last.tv64, data->max_3srate.tv64);
+	printk(KERN_ERR "%s:%03u ERROR: %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_4srate.tv64, data->last.tv64, data->max_4srate.tv64);
+	printk(KERN_ERR "%s:%03u ERROR: %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_7srate.tv64, data->last.tv64, data->max_7srate.tv64);
+	printk(KERN_ERR "%s:%03u ERROR: %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_8srate.tv64, data->last.tv64, data->max_8srate.tv64);
+
+#ifdef TEST
+	memset(data->cbuf.data, 0xFF, sizeof(data->cbuf.data));
+	memset(buf, 0xFF, sizeof(buf));
+
+	cbuf = &data->cbuf;
+
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	strcpy(buf, "ABC");
+	printk(KERN_INFO "%s:%03u append %s...\n", __FUNCTION__, __LINE__, buf);
+	size = cbuffer_append_string(cbuf, _(buf));
+	printk(KERN_INFO "%s:%03u %i bytes appended\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u append %s...\n", __FUNCTION__, __LINE__, buf);
+	size = cbuffer_append_string(cbuf, _(buf));
+	printk(KERN_INFO "%s:%03u %i bytes appended\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u peek...\n", __FUNCTION__, __LINE__);
+	size = cbuffer_read(cbuf, buf, sizeof(buf), 1);
+	printk(KERN_INFO "%s:%03u %i bytes peeked\n", __FUNCTION__, __LINE__, size);
+	print_hex_dump(KERN_ERR, "buf ", DUMP_PREFIX_ADDRESS, 16, 1, buf, sizeof(buf), 1);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u peek...\n", __FUNCTION__, __LINE__);
+	size = cbuffer_read(cbuf, buf, sizeof(buf), 1);
+	printk(KERN_INFO "%s:%03u %i bytes peeked\n", __FUNCTION__, __LINE__, size);
+	print_hex_dump(KERN_ERR, "buf ", DUMP_PREFIX_ADDRESS, 16, 1, buf, sizeof(buf), 1);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u read...\n", __FUNCTION__, __LINE__);
+	size = cbuffer_read(cbuf, buf, sizeof(buf), 0);
+	printk(KERN_INFO "%s:%03u %i bytes read\n", __FUNCTION__, __LINE__, size);
+	print_hex_dump(KERN_ERR, "buf ", DUMP_PREFIX_ADDRESS, 16, 1, buf, sizeof(buf), 1);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u peek...\n", __FUNCTION__, __LINE__);
+	size = cbuffer_read(cbuf, buf, sizeof(buf), 1);
+	printk(KERN_INFO "%s:%03u %i bytes peeked\n", __FUNCTION__, __LINE__, size);
+	print_hex_dump(KERN_ERR, "buf ", DUMP_PREFIX_ADDRESS, 16, 1, buf, sizeof(buf), 1);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	strcpy(buf, "DEFGHIJKLMNOP");
+	printk(KERN_INFO "%s:%03u append %s...\n", __FUNCTION__, __LINE__, buf);
+	size = cbuffer_append_string(cbuf, _(buf));
+	printk(KERN_INFO "%s:%03u %i bytes appended\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u peek...\n", __FUNCTION__, __LINE__);
+	size = cbuffer_read(cbuf, buf, sizeof(buf), 1);
+	print_hex_dump(KERN_ERR, "buf", DUMP_PREFIX_ADDRESS, 16, 1, buf, sizeof(buf), 1);
+	printk(KERN_INFO "%s:%03u size: %i\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	strcpy(buf, "QRSTUVWXYZ");
+	printk(KERN_INFO "%s:%03u append %s...\n", __FUNCTION__, __LINE__, buf);
+	size = cbuffer_read(cbuf, _(buf), 1);
+	printk(KERN_INFO "%s:%03u %i bytes appended\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u peek...\n", __FUNCTION__, __LINE__);
+	size = cbuffer_read(cbuf, buf, sizeof(buf), 1);
+	print_hex_dump(KERN_ERR, "buf", DUMP_PREFIX_ADDRESS, 16, 1, buf, sizeof(buf), 1);
+	printk(KERN_INFO "%s:%03u size: %i\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u read...\n", __FUNCTION__, __LINE__);
+	size = cbuffer_read(cbuf, buf, sizeof(buf), 0);
+	print_hex_dump(KERN_ERR, "buf", DUMP_PREFIX_ADDRESS, 16, 1, buf, sizeof(buf), 1);
+	printk(KERN_INFO "%s:%03u size: %i\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	strcpy(buf, "1234567890");
+	printk(KERN_INFO "%s:%03u append %s...\n", __FUNCTION__, __LINE__, buf);
+	size = cbuffer_append_string(cbuf, _(buf));
+	printk(KERN_INFO "%s:%03u %i bytes appended\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+
+	printk(KERN_INFO "%s:%03u read...\n", __FUNCTION__, __LINE__);
+	size = cbuffer_read(cbuf, buf, sizeof(buf), 0);
+	print_hex_dump(KERN_ERR, "buf", DUMP_PREFIX_ADDRESS, 16, 1, buf, sizeof(buf), 1);
+	printk(KERN_INFO "%s:%03u size: %i\n", __FUNCTION__, __LINE__, size);
+	__cbuffer_hexdump(cbuf, 1);
+	printk(KERN_INFO "%s:%03u cbuffer_empty(cbuf): %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_empty(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_full(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_full(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u cbuffer_size(cbuf):  %i { first: %i, last: %i }\n", __FUNCTION__, __LINE__, cbuffer_size(cbuf), cbuf->first, cbuf->last);
+	printk(KERN_INFO "%s:%03u\n\n\n", __FUNCTION__, __LINE__);
+#endif
 }
 
 void morse_decoding_cleanup(struct morse_decoding *data)
@@ -223,18 +390,31 @@ char decode(struct morse_decoding *data, const ktime_t t)
 {
 	char ret;
 
-	if ((ktime_compare(data->min_srate, t) <= 0) && (ktime_compare(t, data->max_srate) <= 0))
+	if ((ktime_compare(data->min_srate, t) <= 0) && (ktime_compare(t, data->max_srate) <= 0)) {
 		ret = '.';
-	else if ((ktime_compare(data->min_3srate, t) <= 0) && (ktime_compare(t, data->max_3srate) <= 0))
+	}
+	else if ((ktime_compare(data->min_3srate, t) <= 0) && (ktime_compare(t, data->max_3srate) <= 0)) {
 		ret = '-';
-	else if ((ktime_compare(data->min_4srate, t) <= 0) && (ktime_compare(t, data->max_4srate) <= 0))
+	}
+	else if ((ktime_compare(data->min_4srate, t) <= 0) && (ktime_compare(t, data->max_4srate) <= 0)) {
+		printk(KERN_WARNING "Letter gap is too long (%llins)!\n", t.tv64);
 		ret = '-';
-	else if ((ktime_compare(data->min_7srate, t) <= 0) && (ktime_compare(t, data->max_7srate) <= 0))
+	}
+	else if ((ktime_compare(data->min_7srate, t) <= 0) && (ktime_compare(t, data->max_7srate) <= 0)) {
 		ret = ' ';
-	else if ((ktime_compare(data->min_8srate, t) <= 0) && (ktime_compare(t, data->max_8srate) <= 0))
+	}
+	else if ((ktime_compare(data->min_8srate, t) <= 0) && (ktime_compare(t, data->max_8srate) <= 0)) {
+		printk(KERN_WARNING "Word gap is too long (%llins)!\n", t.tv64);
 		ret = ' ';
-	else
+	}
+	else {
+		printk(KERN_ERR "%s:%03u %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_srate.tv64, t.tv64, data->max_srate.tv64);
+		printk(KERN_ERR "%s:%03u %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_3srate.tv64, t.tv64, data->max_3srate.tv64);
+		printk(KERN_ERR "%s:%03u %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_4srate.tv64, t.tv64, data->max_4srate.tv64);
+		printk(KERN_ERR "%s:%03u %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_7srate.tv64, t.tv64, data->max_7srate.tv64);
+		printk(KERN_ERR "%s:%03u %lli < %lli < %lli\n", __FUNCTION__, __LINE__, data->min_8srate.tv64, t.tv64, data->max_8srate.tv64);
 		ret = '?';
+	}
 
 	return ret;
 }
@@ -264,20 +444,52 @@ void morse_decoding_change(struct morse_decoding *data, bool val)
 			return;
 
 		data->buf[data->size] = 0;
+
+		printk(KERN_INFO "%c (%s)\n", from_morse(data->buf), data->buf);
+//		if (!cbuffer_full(&data->cbuf)) {
+//			cbuffer_append_char(&data->cbuf, from_morse(data->buf));
+//			data->cbuf.data[data->cbuf.last++] = from_morse(data->buf);
+//			printk(KERN_INFO "%s:%03u CODE: %c (%i) (buf: %s, size: %i)\n", __FUNCTION__, __LINE__, data->cbuf.data[data->cbuf.last-1], data->cbuf.last, data->buf, strlen(data->buf));
+//		}
+
+//		if (c == ' ') {
+//			cbuffer_read(&data->cbuf, xxx, sizeof(xxx), 0);
+//			printk(KERN_INFO "%s \n", xxx);
+//			printk(KERN_INFO "%s:%03u WORD-GAP (buf: %s, size: %i)\n", __FUNCTION__, __LINE__, data->buf, strlen(data->buf));
+//			printk(KERN_INFO "_\n");
+//		}
+//		else {
+//			printk(KERN_INFO "%s:%03u ESPACE-GAP (buf: %s, size: %i)\n", __FUNCTION__, __LINE__, data->buf, strlen(data->buf));
+//			printk(KERN_INFO "<%c>\n", c);
+//		}
 		data->size = 0;
 	}
-	else
+	else {
 		data->buf[data->size] = c;
+//		if (c == '.') {
+//			printk(KERN_INFO "%s:%03u DIT (buf: %s, size: %i)\n", __FUNCTION__, __LINE__, data->buf, strlen(data->buf));
+//			printk(KERN_INFO ".\n");
+//		}
+//		else if (c == '-'){
+//			printk(KERN_INFO "%s:%03u DAH (buf: %s, size: %i)\n", __FUNCTION__, __LINE__, data->buf, strlen(data->buf));
+//			printk(KERN_INFO "-\n");
+//		}
+//		else {
+//			printk(KERN_INFO "????? %c ?????\n", c);
+//		}
+	}
+//	printk(KERN_INFO "\n");
 }
 
 static int __init morse_decoding_mod_init(void)
 {
+	printk(KERN_INFO "%s:%u %s\n", __FUNCTION__, __LINE__, __TIMESTAMP__);
 	return 0;
 }
 
 static void __exit morse_decoding_mod_exit(void)
 {
-
+	printk(KERN_INFO "%s:%u %s\n", __FUNCTION__, __LINE__, __TIMESTAMP__);
 }
 
 module_init(morse_decoding_mod_init);
