@@ -151,8 +151,8 @@
 			gpio-key,wakeup;
 		};
 
-		mode {
-			label = "mode";
+		user {
+			label = "user";
 			gpios = <&pioB 31 GPIO_ACTIVE_HIGH>;
 			linux,code = <0x101>;
 			gpio-key,wakeup;
