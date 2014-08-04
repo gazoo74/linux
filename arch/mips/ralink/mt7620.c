@@ -36,6 +36,12 @@
 #define PMU1_CFG		0x8C
 #define DIG_SW_SEL		BIT(25)
 
+/* clock scaling */
+#define CLKCFG_FDIV_MASK	0x1f00
+#define CLKCFG_FDIV_USB_VAL	0x0300
+#define CLKCFG_FFRAC_MASK	0x001f
+#define CLKCFG_FFRAC_USB_VAL	0x0003
+
 /* does the board have sdram or ddram */
 static int dram_type;
 
@@ -337,6 +343,19 @@ void __init ralink_clk_init(void)
 	ralink_clk_add("10000b00.spi", sys_rate);
 	ralink_clk_add("10000c00.uartlite", periph_rate);
 	ralink_clk_add("10180000.wmac", xtal_rate);
+
+	if (IS_ENABLED(CONFIG_USB)) {
+		/*
+		 * When the CPU goes into sleep mode, the BUS clock will be too low for
+		 * USB to function properly
+		 */
+		u32 val = rt_sysc_r32(SYSC_REG_CPU_SYS_CLKCFG);
+
+		val &= ~(CLKCFG_FDIV_MASK | CLKCFG_FFRAC_MASK);
+		val |= CLKCFG_FDIV_USB_VAL | CLKCFG_FFRAC_USB_VAL;
+
+		rt_sysc_w32(val, SYSC_REG_CPU_SYS_CLKCFG);
+	}
 }
 
 void __init ralink_of_remap(void)
