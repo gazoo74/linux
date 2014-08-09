@@ -61,8 +61,8 @@ struct atmel_tcb_config {
  */
 struct atmel_tc {
 	struct platform_device	*pdev;
-	struct resource		*iomem;
 	void __iomem		*regs;
+	bool			allocated;
 	const struct atmel_tcb_config *tcb_config;
 	int			irq[3];
 	struct clk		*clk[3];

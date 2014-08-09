@@ -45,50 +45,25 @@ struct atmel_tc *atmel_tc_alloc(unsigned block, const char *name)
 {
 	struct atmel_tc		*tc;
 	struct platform_device	*pdev = NULL;
-	struct resource		*r;
-	size_t			size;
 
 	spin_lock(&tc_list_lock);
 	list_for_each_entry(tc, &tc_list, node) {
 		if (tc->pdev->dev.of_node) {
 			if (of_alias_get_id(tc->pdev->dev.of_node, "tcb")
-					== block) {
+					== block && !tc->allocated) {
 				pdev = tc->pdev;
+				tc->allocated = true;
 				break;
 			}
-		} else if (tc->pdev->id == block) {
+		} else if (tc->pdev->id == block && !tc->allocated) {
 			pdev = tc->pdev;
+			tc->allocated = true;
 			break;
 		}
 	}
-
-	if (!pdev || tc->iomem)
-		goto fail;
-
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!r)
-		goto fail;
-
-	size = resource_size(r);
-	r = request_mem_region(r->start, size, name);
-	if (!r)
-		goto fail;
-
-	tc->regs = ioremap(r->start, size);
-	if (!tc->regs)
-		goto fail_ioremap;
-
-	tc->iomem = r;
-
-out:
 	spin_unlock(&tc_list_lock);
-	return tc;
 
-fail_ioremap:
-	release_mem_region(r->start, size);
-fail:
-	tc = NULL;
-	goto out;
+	return pdev ? tc : NULL;
 }
 EXPORT_SYMBOL_GPL(atmel_tc_alloc);
 
@@ -103,12 +78,8 @@ EXPORT_SYMBOL_GPL(atmel_tc_alloc);
 void atmel_tc_free(struct atmel_tc *tc)
 {
 	spin_lock(&tc_list_lock);
-	if (tc->regs) {
-		iounmap(tc->regs);
-		release_mem_region(tc->iomem->start, resource_size(tc->iomem));
-		tc->regs = NULL;
-		tc->iomem = NULL;
-	}
+	if (tc->allocated)
+		tc->allocated = false;
 	spin_unlock(&tc_list_lock);
 }
 EXPORT_SYMBOL_GPL(atmel_tc_free);
@@ -142,9 +113,7 @@ static int __init tc_probe(struct platform_device *pdev)
 	struct atmel_tc *tc;
 	struct clk	*clk;
 	int		irq;
-
-	if (!platform_get_resource(pdev, IORESOURCE_MEM, 0))
-		return -EINVAL;
+	struct resource	*r;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -167,6 +136,11 @@ static int __init tc_probe(struct platform_device *pdev)
 		if (match)
 			tc->tcb_config = match->data;
 	}
+
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	tc->regs = devm_ioremap_resource(&pdev->dev, r);
+	if (IS_ERR(tc->regs))
+		return PTR_ERR(tc->regs);
 
 	tc->clk[0] = clk;
 	tc->clk[1] = devm_clk_get(&pdev->dev, "t1_clk");
