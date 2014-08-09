@@ -114,6 +114,7 @@ static int __init tc_probe(struct platform_device *pdev)
 	struct clk	*clk;
 	int		irq;
 	struct resource	*r;
+	unsigned int	i;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -157,6 +158,9 @@ static int __init tc_probe(struct platform_device *pdev)
 	tc->irq[2] = platform_get_irq(pdev, 2);
 	if (tc->irq[2] < 0)
 		tc->irq[2] = irq;
+
+	for (i = 0; i < 3; i++)
+		__raw_writel(0xff, tc->regs + ATMEL_TC_REG(i, IDR));
 
 	spin_lock(&tc_list_lock);
 	list_add_tail(&tc->node, &tc_list);
