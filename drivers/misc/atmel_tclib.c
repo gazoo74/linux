@@ -190,7 +190,21 @@ static int __init tc_probe(struct platform_device *pdev)
 	list_add_tail(&tc->node, &tc_list);
 	spin_unlock(&tc_list_lock);
 
+	platform_set_drvdata(pdev, tc);
+
 	return 0;
+}
+
+static void tc_shutdown (struct platform_device *pdev)
+{
+	int i;
+	struct atmel_tc *tc = platform_get_drvdata(pdev);
+
+	if (!tc->regs)
+		return;
+
+	for (i = 0; i < 3; i++)
+		__raw_writel(0xff, tc->regs + ATMEL_TC_REG(i, IDR));
 }
 
 static struct platform_driver tc_driver = {
@@ -198,6 +212,7 @@ static struct platform_driver tc_driver = {
 		.name	= "atmel_tcb",
 		.of_match_table	= of_match_ptr(atmel_tcb_dt_ids),
 	},
+	.shutdown = tc_shutdown,
 };
 
 static int __init tc_init(void)
