@@ -103,6 +103,17 @@ config LEDS_TRIGGER_DEFAULT_ON
 comment "iptables trigger is under Netfilter config (LED target)"
 	depends on LEDS_TRIGGERS
 
+config LEDS_TRIGGER_MORSE
+	tristate "LED Morse Trigger"
+	depends on LEDS_TRIGGERS
+	depends on MORSE_ENCODING
+	help
+	  This allows LEDs to transmit text information as a series of on-off
+	  lights.
+	  For more details read Documentation/leds/ledtrig-morse.txt.
+
+	  If unsure, say N.
+
 config LEDS_TRIGGER_TRANSIENT
 	tristate "LED Transient Trigger"
 	depends on LEDS_TRIGGERS
