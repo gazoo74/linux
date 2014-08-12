@@ -45,50 +45,25 @@ struct atmel_tc *atmel_tc_alloc(unsigned block, const char *name)
 {
 	struct atmel_tc		*tc;
 	struct platform_device	*pdev = NULL;
-	struct resource		*r;
-	size_t			size;
 
 	spin_lock(&tc_list_lock);
 	list_for_each_entry(tc, &tc_list, node) {
 		if (tc->pdev->dev.of_node) {
 			if (of_alias_get_id(tc->pdev->dev.of_node, "tcb")
-					== block) {
+					== block && !tc->allocated) {
 				pdev = tc->pdev;
+				tc->allocated = true;
 				break;
 			}
-		} else if (tc->pdev->id == block) {
+		} else if (tc->pdev->id == block && !tc->allocated) {
 			pdev = tc->pdev;
+			tc->allocated = true;
 			break;
 		}
 	}
-
-	if (!pdev || tc->iomem)
-		goto fail;
-
-	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!r)
-		goto fail;
-
-	size = resource_size(r);
-	r = request_mem_region(r->start, size, name);
-	if (!r)
-		goto fail;
-
-	tc->regs = ioremap(r->start, size);
-	if (!tc->regs)
-		goto fail_ioremap;
-
-	tc->iomem = r;
-
-out:
 	spin_unlock(&tc_list_lock);
-	return tc;
 
-fail_ioremap:
-	release_mem_region(r->start, size);
-fail:
-	tc = NULL;
-	goto out;
+	return pdev ? tc : NULL;
 }
 EXPORT_SYMBOL_GPL(atmel_tc_alloc);
 
@@ -103,12 +78,8 @@ EXPORT_SYMBOL_GPL(atmel_tc_alloc);
 void atmel_tc_free(struct atmel_tc *tc)
 {
 	spin_lock(&tc_list_lock);
-	if (tc->regs) {
-		iounmap(tc->regs);
-		release_mem_region(tc->iomem->start, resource_size(tc->iomem));
-		tc->regs = NULL;
-		tc->iomem = NULL;
-	}
+	if (tc->allocated)
+		tc->allocated = false;
 	spin_unlock(&tc_list_lock);
 }
 EXPORT_SYMBOL_GPL(atmel_tc_free);
@@ -142,25 +113,22 @@ static int __init tc_probe(struct platform_device *pdev)
 	struct atmel_tc *tc;
 	struct clk	*clk;
 	int		irq;
-
-	if (!platform_get_resource(pdev, IORESOURCE_MEM, 0))
-		return -EINVAL;
+	struct resource	*r;
+	unsigned int	i;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return -EINVAL;
 
-	tc = kzalloc(sizeof(struct atmel_tc), GFP_KERNEL);
+	tc = devm_kzalloc(&pdev->dev, sizeof(struct atmel_tc), GFP_KERNEL);
 	if (!tc)
 		return -ENOMEM;
 
 	tc->pdev = pdev;
 
-	clk = clk_get(&pdev->dev, "t0_clk");
-	if (IS_ERR(clk)) {
-		kfree(tc);
-		return -EINVAL;
-	}
+	clk = devm_clk_get(&pdev->dev, "t0_clk");
+	if (IS_ERR(clk))
+		return PTR_ERR(clk);
 
 	/* Now take SoC information if available */
 	if (pdev->dev.of_node) {
@@ -170,11 +138,16 @@ static int __init tc_probe(struct platform_device *pdev)
 			tc->tcb_config = match->data;
 	}
 
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	tc->regs = devm_ioremap_resource(&pdev->dev, r);
+	if (IS_ERR(tc->regs))
+		return PTR_ERR(tc->regs);
+
 	tc->clk[0] = clk;
-	tc->clk[1] = clk_get(&pdev->dev, "t1_clk");
+	tc->clk[1] = devm_clk_get(&pdev->dev, "t1_clk");
 	if (IS_ERR(tc->clk[1]))
 		tc->clk[1] = clk;
-	tc->clk[2] = clk_get(&pdev->dev, "t2_clk");
+	tc->clk[2] = devm_clk_get(&pdev->dev, "t2_clk");
 	if (IS_ERR(tc->clk[2]))
 		tc->clk[2] = clk;
 
@@ -186,11 +159,28 @@ static int __init tc_probe(struct platform_device *pdev)
 	if (tc->irq[2] < 0)
 		tc->irq[2] = irq;
 
+	for (i = 0; i < 3; i++)
+		__raw_writel(0xff, tc->regs + ATMEL_TC_REG(i, IDR));
+
 	spin_lock(&tc_list_lock);
 	list_add_tail(&tc->node, &tc_list);
 	spin_unlock(&tc_list_lock);
 
+	platform_set_drvdata(pdev, tc);
+
 	return 0;
+}
+
+static void tc_shutdown (struct platform_device *pdev)
+{
+	int i;
+	struct atmel_tc *tc = platform_get_drvdata(pdev);
+
+	if (!tc->regs)
+		return;
+
+	for (i = 0; i < 3; i++)
+		__raw_writel(0xff, tc->regs + ATMEL_TC_REG(i, IDR));
 }
 
 static struct platform_driver tc_driver = {
@@ -198,6 +188,7 @@ static struct platform_driver tc_driver = {
 		.name	= "atmel_tcb",
 		.of_match_table	= of_match_ptr(atmel_tcb_dt_ids),
 	},
+	.shutdown = tc_shutdown,
 };
 
 static int __init tc_init(void)
