@@ -14,7 +14,7 @@
 	compatible = "overkiz,kizbox", "atmel,at91sam9g20", "atmel,at91sam9";
 
 	chosen {
-		bootargs = "panic=5 ubi.mtd=1 rootfstype=ubifs root=ubi0:root";
+		bootargs = "panic=5 ubi.mtd=1 rootfstype=ubifs root=ubi0:root rw";
 	};
 
 	memory {
