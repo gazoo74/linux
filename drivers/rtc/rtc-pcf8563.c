@@ -586,38 +586,33 @@ static int pcf8563_probe(struct i2c_client *client,
 #ifdef CONFIG_RTC_INTF_SYSFS
 	err = sysfs_create_group(&client->dev.kobj, &attr_group);
 	if (err)
-		return err;
+		goto err;
 #endif
 
 	/* Clear STOP bit if set */
 	err = pcf8563_read_block_data(client, PCF8563_REG_ST1, 1, &buf);
 	if (err < 0) {
 		dev_err(&client->dev, "%s: read error\n", __func__);
-		return err;
 	}
-	if (buf & PCF8563_BIT_STOP) {
+	else if (buf & PCF8563_BIT_STOP) {
 		dev_info(&client->dev, "clear STOP bit\n");
 		buf &= ~PCF8563_BIT_STOP;
 		err = pcf8563_write_block_data(client, PCF8563_REG_ST1, 1, &buf);
-		if (err < 0) {
+		if (err < 0)
 			dev_err(&client->dev, "%s: write error\n", __func__);
-			return err;
-		}
+		else
+			dev_info(&client->dev, "STOP bit cleared!\n");
 	}
 
 	/* Set timer to lowest frequency to save power (ref Haoyu datasheet) */
 	buf = PCF8563_TMRC_1_60;
 	err = pcf8563_write_block_data(client, PCF8563_REG_TMRC, 1, &buf);
-	if (err < 0) {
+	if (err < 0)
 		dev_err(&client->dev, "%s: write error\n", __func__);
-		return err;
-	}
 
 	err = pcf8563_get_alarm_mode(client, NULL, &alm_pending);
-	if (err < 0) {
+	if (err < 0)
 		dev_err(&client->dev, "%s: read error\n", __func__);
-		return err;
-	}
 	if (alm_pending)
 		pcf8563_set_alarm_mode(client, 0);
 
@@ -636,13 +631,47 @@ static int pcf8563_probe(struct i2c_client *client,
 		if (err) {
 			dev_err(&client->dev, "unable to request IRQ %d\n",
 								client->irq);
-			return err;
+			goto err;
 		}
 
 	}
 
 	/* the pcf8563 alarm only supports a minute accuracy */
 	pcf8563->rtc->uie_unsupported = 1;
+
+	return 0;
+
+err:
+	if (pcf8563->rtc)
+		devm_rtc_device_unregister(&client->dev, pcf8563->rtc);
+
+#ifdef CONFIG_RTC_INTF_SYSFS
+	sysfs_remove_group(&client->dev.kobj, &attr_group);
+#endif
+
+	device_set_wakeup_capable(&client->dev, 0);
+	i2c_set_clientdata(client, NULL);
+	devm_kfree(&client->dev, pcf8563);
+
+	return err;
+}
+
+static int pcf8563_remove(struct i2c_client *client)
+{
+	struct pcf8563 *pcf8563 = i2c_get_clientdata(client);
+
+	if (!pcf8563)
+		return 0;
+
+	devm_rtc_device_unregister(&client->dev, pcf8563->rtc);
+
+#ifdef CONFIG_RTC_INTF_SYSFS
+	sysfs_remove_group(&client->dev.kobj, &attr_group);
+#endif
+
+	device_set_wakeup_capable(&client->dev, 0);
+	i2c_set_clientdata(client, NULL);
+	devm_kfree(&client->dev, pcf8563);
 
 	return 0;
 }
