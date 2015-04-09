@@ -426,7 +426,6 @@ static int pcf8563_set_datetime(struct i2c_client *client, struct rtc_time *tm)
 #ifdef CONFIG_RTC_INTF_DEV
 static int pcf8563_rtc_ioctl(struct device *dev, unsigned int cmd, unsigned long arg)
 {
-	struct pcf8563 *pcf8563 = i2c_get_clientdata(to_i2c_client(dev));
 	struct rtc_time tm;
 	int err;
 	unsigned char buf;

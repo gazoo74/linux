@@ -36,7 +36,6 @@ static struct i2c_driver pcf85063_driver;
 struct pcf85063 {
 	struct rtc_device *rtc;
 	int c_polarity;	/* 0: MO_C=1 means 19xx, otherwise MO_C=1 means 20xx */
-	int voltage_low; /* indicates if a low_voltage was detected */
 };
 
 /*
