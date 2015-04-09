@@ -26,6 +26,7 @@
 
 #define PCF8563_REG_ST1		0x00 /* status */
 #define PCF8563_REG_ST2		0x01
+#define PCF8563_BIT_STOP	(1 << 5)
 #define PCF8563_BIT_AIE		(1 << 1)
 #define PCF8563_BIT_AF		(1 << 3)
 #define PCF8563_BITS_ST2_N	(7 << 5)
@@ -432,6 +433,22 @@ static int pcf8563_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, pcf8563);
 	pcf8563->client = client;
 	device_set_wakeup_capable(&client->dev, 1);
+
+	/* Clear STOP bit if set */
+	err = pcf8563_read_block_data(client, PCF8563_REG_ST1, 1, &buf);
+	if (err < 0) {
+		dev_err(&client->dev, "%s: read error\n", __func__);
+		return err;
+	}
+	if (buf & PCF8563_BIT_STOP) {
+		dev_info(&client->dev, "clear STOP bit\n");
+		buf |= ~PCF8563_BIT_STOP;
+		err = pcf8563_write_block_data(client, PCF8563_REG_ST1, 1, &buf);
+		if (err < 0) {
+			dev_err(&client->dev, "%s: write error\n", __func__);
+			return err;
+		}
+	}
 
 	/* Set timer to lowest frequency to save power (ref Haoyu datasheet) */
 	buf = PCF8563_TMRC_1_60;
