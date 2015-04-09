@@ -74,7 +74,6 @@ struct pcf8563 {
 	 * 1970...2069.
 	 */
 	int c_polarity;	/* 0: MO_C=1 means 19xx, otherwise MO_C=1 means 20xx */
-	int voltage_low; /* incicates if a low_voltage was detected */
 
 	struct i2c_client *client;
 };
@@ -202,7 +201,6 @@ static int pcf8563_get_datetime(struct i2c_client *client, struct rtc_time *tm)
 		return err;
 
 	if (buf[PCF8563_REG_SC] & PCF8563_SC_LV) {
-		pcf8563->voltage_low = 1;
 		dev_info(&client->dev,
 			"low voltage detected, date/time is not reliable.\n");
 	}
@@ -286,29 +284,34 @@ static int pcf8563_rtc_ioctl(struct device *dev, unsigned int cmd, unsigned long
 {
 	struct pcf8563 *pcf8563 = i2c_get_clientdata(to_i2c_client(dev));
 	struct rtc_time tm;
+	int err;
+	unsigned char buf;
 
 	switch (cmd) {
 	case RTC_VL_READ:
-		if (pcf8563->voltage_low)
+		/* Read the LOW_VOLTAGE bit */
+		err = pcf8563_read_block_data(to_i2c_client(dev),
+					      PCF8563_REG_SC, 1, &buf);
+		if (err < 0) {
+			dev_err(dev, "%s: read error\n", __func__);
+			return err;
+		}
+
+		buf = (buf & PCF8563_SC_LV) >> 7;
+		if (buf)
 			dev_info(dev, "low voltage detected, date/time is not reliable.\n");
 
-		if (copy_to_user((void __user *)arg, &pcf8563->voltage_low,
-					sizeof(int)))
+		if (copy_to_user((void __user *)arg, &buf, sizeof(int)))
 			return -EFAULT;
 		return 0;
 	case RTC_VL_CLR:
 		/*
 		 * Clear the VL bit in the seconds register in case
 		 * the time has not been set already (which would
-		 * have cleared it). This does not really matter
-		 * because of the cached voltage_low value but do it
-		 * anyway for consistency.
+		 * have cleared it).
 		 */
 		if (pcf8563_get_datetime(to_i2c_client(dev), &tm))
 			pcf8563_set_datetime(to_i2c_client(dev), &tm);
-
-		/* Clear the cached value. */
-		pcf8563->voltage_low = 0;
 
 		return 0;
 	default:
