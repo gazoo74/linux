@@ -26,9 +26,14 @@
 
 #define PCF8563_REG_ST1		0x00 /* status */
 #define PCF8563_REG_ST2		0x01
+#define PCF8563_BIT_TESTC	(1 << 3)
 #define PCF8563_BIT_STOP	(1 << 5)
+#define PCF8563_BIT_TEST1	(1 << 7)
+#define PCF8563_BIT_TIE		(1 << 0)
 #define PCF8563_BIT_AIE		(1 << 1)
+#define PCF8563_BIT_TF		(1 << 2)
 #define PCF8563_BIT_AF		(1 << 3)
+#define PCF8563_BIT_TI_TP	(1 << 4)
 #define PCF8563_BITS_ST2_N	(7 << 5)
 
 #define PCF8563_REG_SC		0x02 /* datetime */
@@ -124,6 +129,147 @@ static int pcf8563_write_block_data(struct i2c_client *client,
 
 	return 0;
 }
+
+#ifdef CONFIG_RTC_INTF_SYSFS
+static ssize_t control_status_1_show(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	int err, size;
+	unsigned char val;
+
+	err = pcf8563_read_block_data(client, PCF8563_REG_ST1, 1, &val);
+	if (err < 0) {
+		dev_err(dev, "%s: read error\n", __func__);
+		return err;
+	}
+
+	size = snprintf(buf, PAGE_SIZE, "0x%02x", val);
+
+	if (val & PCF8563_BIT_TEST1)
+		size += snprintf(&buf[size], PAGE_SIZE - size, " TEST1");
+
+	if (val & PCF8563_BIT_STOP)
+		size += snprintf(&buf[size], PAGE_SIZE - size, " STOP");
+
+	if (val & PCF8563_BIT_TESTC)
+		size += snprintf(&buf[size], PAGE_SIZE - size, " TESTC");
+
+	size += snprintf(&buf[size], PAGE_SIZE - size, "\n");
+	return size;
+}
+
+static ssize_t control_status_1_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	int err;
+	unsigned char val;
+	unsigned long ul;
+
+	err = kstrtoul(buf, 0, &ul);
+	if (err)
+		return -EINVAL;
+
+	val = ul;
+	err = pcf8563_write_block_data(client, PCF8563_REG_ST1, 1, &val);
+	if (err < 0) {
+		dev_err(dev, "%s: write error\n", __func__);
+		return -EIO;
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(control_status_1);
+
+static ssize_t control_status_2_show(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	int err, size;
+	unsigned char val;
+
+	err = pcf8563_read_block_data(client, PCF8563_REG_ST2, 1, &val);
+	if (err < 0) {
+		dev_err(dev, "%s: read error\n", __func__);
+		return err;
+	}
+
+	size = snprintf(buf, PAGE_SIZE, "0x%02x", val);
+
+	if (val & PCF8563_BIT_TI_TP)
+		size += snprintf(&buf[size], PAGE_SIZE - size, " TI_TP");
+
+	if (val & PCF8563_BIT_AF)
+		size += snprintf(&buf[size], PAGE_SIZE - size, " AF");
+
+	if (val & PCF8563_BIT_TF)
+		size += snprintf(&buf[size], PAGE_SIZE - size, " TF");
+
+	if (val & PCF8563_BIT_AIE)
+		size += snprintf(&buf[size], PAGE_SIZE - size, " AIE");
+
+	if (val & PCF8563_BIT_TIE)
+		size += snprintf(&buf[size], PAGE_SIZE - size, " TIE");
+
+	size += snprintf(&buf[size], PAGE_SIZE - size, "\n");
+	return size;
+}
+
+static ssize_t control_status_2_store(struct device *dev,
+				      struct device_attribute *attr,
+				      const char *buf, size_t count)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	int err;
+	unsigned char val;
+	unsigned long ul;
+
+	err = kstrtoul(buf, 0, &ul);
+	if (err)
+		return -EINVAL;
+
+	val = ul;
+	err = pcf8563_write_block_data(client, PCF8563_REG_ST1, 2, &val);
+	if (err < 0) {
+		dev_err(dev, "%s: write error\n", __func__);
+		return -EIO;
+	}
+
+	return count;
+}
+static DEVICE_ATTR_RW(control_status_2);
+
+static ssize_t voltage_low_show(struct device *dev,
+				struct device_attribute *attr, char *buf)
+{
+	struct i2c_client *client = to_i2c_client(dev);
+	int err;
+	unsigned char val;
+
+	err = pcf8563_read_block_data(client, PCF8563_REG_ST1, 1, &val);
+	if (err < 0) {
+		dev_err(dev, "%s: read error\n", __func__);
+		return err;
+	}
+
+	return snprintf(buf, PAGE_SIZE, "%i\n", (val & PCF8563_SC_LV) >> 7);
+}
+
+static DEVICE_ATTR_RO(voltage_low);
+
+static struct attribute *attrs[] = {
+	&dev_attr_control_status_1.attr,
+	&dev_attr_control_status_2.attr,
+	&dev_attr_voltage_low.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = attrs,
+};
+#endif
 
 static int pcf8563_set_alarm_mode(struct i2c_client *client, bool on)
 {
@@ -434,6 +580,12 @@ static int pcf8563_probe(struct i2c_client *client,
 	pcf8563->client = client;
 	device_set_wakeup_capable(&client->dev, 1);
 
+#ifdef CONFIG_RTC_INTF_SYSFS
+	err = sysfs_create_group(&client->dev.kobj, &attr_group);
+	if (err)
+		return err;
+#endif
+
 	/* Clear STOP bit if set */
 	err = pcf8563_read_block_data(client, PCF8563_REG_ST1, 1, &buf);
 	if (err < 0) {
@@ -492,6 +644,15 @@ static int pcf8563_probe(struct i2c_client *client,
 	return 0;
 }
 
+#ifdef CONFIG_RTC_INTF_SYSFS
+static int pcf8563_remove(struct i2c_client *client)
+{
+	sysfs_remove_group(&client->dev.kobj, &attr_group);
+
+	return 0;
+}
+#endif
+
 static const struct i2c_device_id pcf8563_id[] = {
 	{ "pcf8563", 0 },
 	{ "rtc8564", 0 },
@@ -514,6 +675,9 @@ static struct i2c_driver pcf8563_driver = {
 		.of_match_table = of_match_ptr(pcf8563_of_match),
 	},
 	.probe		= pcf8563_probe,
+#ifdef CONFIG_RTC_INTF_SYSFS
+	.remove		= pcf8563_remove,
+#endif
 	.id_table	= pcf8563_id,
 };
 
