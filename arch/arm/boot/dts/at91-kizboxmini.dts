@@ -1,7 +1,9 @@
 /*
  * at91-kizboxmini.dts - Device Tree file for Overkiz Kizbox mini board
  *
- * Copyright (C) 2014 Gaël PORTAY <g.portay@overkiz.com>
+ * Copyright (C) 2014-2015 Gaël PORTAY <g.portay@overkiz.com>
+ *                    2015 Antoine AUBERT <a.aubert@overkiz.com>
+ *                         Kévin RAYMOND <k.raymond@overkiz.com>
  *
  * Licensed under GPLv2 or later.
  */
