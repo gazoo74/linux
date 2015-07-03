@@ -1,0 +1,27 @@
+/*
+ * at91-kizboxmini-si4461.dts - Device Tree file for Overkiz Kizbox mini board with SI4461
+ *
+ * Copyright (C) 2015 Antoine AUBERT <a.aubert@overkiz.com>
+ *                    Kévin RAYMOND <k.raymond@overkiz.com>
+ *
+ * Licensed under GPLv2 or later.
+ */
+/dts-v1/;
+#include "at91-kizboxmini_common.dtsi"
+
+/ {
+	model = "Overkiz Kizbox mini with SI4461";
+	compatible = "overkiz,kizboxmini-si4461", "atmel,at91sam9g25", "atmel,at91sam9x5", "atmel,at91sam9";
+
+	ahb {
+		apb {
+			usart3: serial@f8028000 {
+				status = "okay";
+			};
+
+			spi1: spi@f0004000 {
+				status = "okay";
+			};
+		};
+	};
+};
