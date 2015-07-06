@@ -21,6 +21,7 @@ dtb-$(CONFIG_SOC_SAM_V4_V5) += \
 	usb_a9263.dtb \
 	at91-foxg20.dtb \
 	at91-kizbox.dtb \
+	at91-kizbox-ext.dtb \
 	at91sam9g20ek.dtb \
 	at91sam9g20ek_2mmc.dtb \
 	tny_a9g20.dtb \

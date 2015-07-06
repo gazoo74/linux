@@ -1,0 +1,32 @@
+/*
+ * at91-kizbox-ext.dts - Device Tree file for Overkiz Kizbox board with additional extentions
+ *
+ * Copyright (C) 2015 Antoine AUBERT <a.aubert@overkiz.com>
+ *                    Kévin RAYMOND <k.raymond@overkiz.com>
+ *
+ * Licensed under GPLv2 or later.
+ */
+/dts-v1/;
+#include "at91-kizbox_common.dtsi"
+
+/ {
+	model = "Overkiz Kizbox with additional extentions";
+	compatible = "overkiz,kizbox-ext", "atmel,at91sam9g20", "atmel,at91sam9";
+
+	ahb {
+		apb {
+			usart0: serial@fffb0000 {
+				status = "okay";
+			};
+
+			spi0: spi@fffc8000 {
+				status = "okay";
+			};
+		};
+
+		usb0: ohci@00500000 {
+			num-ports = <2>;
+			status = "okay";
+		};
+	};
+};
