@@ -725,7 +725,7 @@ config SND_SOC_WM8955
 	tristate
 
 config SND_SOC_WM8960
-	tristate
+	tristate "WM8960"
 
 config SND_SOC_WM8961
 	tristate

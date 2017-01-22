@@ -1851,7 +1851,8 @@ static int soc_probe(struct platform_device *pdev)
 	/* Bodge while we unpick instantiation */
 	card->dev = &pdev->dev;
 
-	return snd_soc_register_card(card);
+	snd_soc_register_card(card);
+	return 0;
 }
 
 static int soc_cleanup_card_resources(struct snd_soc_card *card)

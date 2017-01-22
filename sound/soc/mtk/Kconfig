@@ -1,0 +1,35 @@
+config SND_MT76XX_SOC
+	tristate "SoC Audio for MT76XX APSoC Machine"
+	depends on SND_SOC && (SOC_MT7620 || SOC_MT7621)
+
+	help
+	  Say Y or M if you want to add support for codecs attached to
+	  the MTK I2S interface.
+
+choice
+	prompt "Selected SoC type"
+	depends on SND_MT76XX_SOC
+	default SND_MT76XX_SOC_MT7620
+
+config SND_MT76XX_SOC_MT7620
+	bool "MT7620"
+	depends on SOC_MT7620
+
+config SND_MT76XX_SOC_MT7628
+	bool "MT7628"
+	depends on SOC_MT7620
+
+config SND_MT76XX_SOC_MT7621
+	bool "MT7621"
+	depends on SOC_MT7621
+
+endchoice
+
+config SND_MT76XX_PCM
+	tristate "MTK SoC Audio PCM Platform"
+	depends on SND_MT76XX_SOC
+
+config SND_MT76XX_I2S
+	tristate "MTK SoC I2S Support"
+	depends on SND_MT76XX_SOC
+
