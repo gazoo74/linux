@@ -13,14 +13,6 @@
 #ifndef _MT7620_REGS_H_
 #define _MT7620_REGS_H_
 
-enum mt762x_soc_type {
-	MT762X_SOC_UNKNOWN = 0,
-	MT762X_SOC_MT7620A,
-	MT762X_SOC_MT7620N,
-	MT762X_SOC_MT7628AN,
-};
-extern enum mt762x_soc_type mt762x_soc;
-
 #define MT7620_SYSC_BASE		0x10000000
 
 #define SYSC_REG_CHIP_NAME0		0x00

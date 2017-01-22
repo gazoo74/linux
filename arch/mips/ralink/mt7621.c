@@ -176,6 +176,7 @@ void prom_soc_init(struct ralink_soc_info *soc_info)
 	soc_info->mem_size_min = MT7621_DDR2_SIZE_MIN;
 	soc_info->mem_size_max = MT7621_DDR2_SIZE_MAX;
 	soc_info->mem_base = MT7621_DRAM_BASE;
+	ralink_soc = MT762X_SOC_MT7621AT;
 
 	rt2880_pinmux_data = mt7621_pinmux_data;
 
