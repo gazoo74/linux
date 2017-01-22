@@ -818,9 +818,6 @@ static void split_uimage(struct mtd_info *master, struct mtd_part *part)
 		return;
 
 	len = be32_to_cpu(hdr.size) + 0x40;
-	len = mtd_pad_erasesize(master, part->offset, len);
-	if (len + master->erasesize > part->mtd.size)
-		return;
 
 	if (config_enabled(CONFIG_MTD_SPLIT_UIMAGE_FW))
 		pr_err("Dedicated partitioner didn't split firmware partition, please fill a bug report!\n");
