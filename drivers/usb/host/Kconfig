@@ -41,6 +41,13 @@ config USB_XHCI_PLATFORM
 
 	  If unsure, say N.
 
+config USB_MT7621_XHCI_PLATFORM
+	bool
+	depends on USB_XHCI_PLATFORM
+	depends on SOC_MT7621
+	select USB_PHY
+	default y
+
 config USB_XHCI_MVEBU
 	tristate "xHCI support for Marvell Armada 375/38x"
 	select USB_XHCI_PLATFORM
@@ -596,7 +603,7 @@ endif # USB_OHCI_HCD
 
 config USB_UHCI_HCD
 	tristate "UHCI HCD (most Intel and VIA) support"
-	depends on PCI || USB_UHCI_SUPPORT_NON_PCI_HC
+	depends on BROKEN && (PCI || USB_UHCI_SUPPORT_NON_PCI_HC)
 	---help---
 	  The Universal Host Controller Interface is a standard by Intel for
 	  accessing the USB hardware in the PC (which is also called the USB

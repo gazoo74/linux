@@ -16,7 +16,12 @@ xhci-hcd-y := xhci.o xhci-mem.o
 xhci-hcd-y += xhci-ring.o xhci-hub.o xhci-dbg.o
 xhci-hcd-y += xhci-trace.o
 
+ifdef CONFIG_USB_MT7621_XHCI_PLATFORM
+xhci-hcd-y += mtk-phy.o xhci-mtk-scheduler.o xhci-mtk-power.o xhci-mtk.o mtk-phy-7621.o mtk-phy-ahb.o
+endif
+
 xhci-plat-hcd-y := xhci-plat.o
+
 ifneq ($(CONFIG_USB_XHCI_MVEBU), )
 	xhci-plat-hcd-y		+= xhci-mvebu.o
 endif
@@ -26,9 +31,14 @@ endif
 
 obj-$(CONFIG_USB_WHCI_HCD)	+= whci/
 
+ifndef CONFIG_USB_MT7621_XHCI_PLATFORM
 obj-$(CONFIG_PCI)		+= pci-quirks.o
+endif
 
+ifndef CONFIG_USB_MT7621_XHCI_PLATFORM
 obj-$(CONFIG_USB_XHCI_PCI)	+= xhci-pci.o
+endif
+
 obj-$(CONFIG_USB_XHCI_PLATFORM) += xhci-plat-hcd.o
 
 obj-$(CONFIG_USB_EHCI_HCD)	+= ehci-hcd.o

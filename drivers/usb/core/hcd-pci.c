@@ -223,8 +223,13 @@ int usb_hcd_pci_probe(struct pci_dev *dev, const struct pci_device_id *id)
 		goto disable_pci;
 	}
 
+
+#ifdef CONFIG_USB_MT7621_XHCI_PLATFORM
+	hcd->amd_resume_bug = 0;
+#else
 	hcd->amd_resume_bug = (usb_hcd_amd_remote_wakeup_quirk(dev) &&
 			driver->flags & (HCD_USB11 | HCD_USB3)) ? 1 : 0;
+#endif
 
 	if (driver->flags & HCD_MEMORY) {
 		/* EHCI, OHCI */

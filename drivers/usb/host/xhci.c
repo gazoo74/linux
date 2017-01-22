@@ -32,6 +32,16 @@
 #include "xhci.h"
 #include "xhci-trace.h"
 
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+#include <asm/uaccess.h>
+#include <linux/dma-mapping.h>
+#include <linux/platform_device.h>
+#include "mtk-phy.h"
+#include "xhci-mtk-scheduler.h"
+#include "xhci-mtk-power.h"
+#include "xhci-mtk.h"
+#endif
+
 #define DRIVER_AUTHOR "Sarah Sharp"
 #define DRIVER_DESC "'eXtensible' Host Controller (xHC) Driver"
 
@@ -45,6 +55,18 @@ MODULE_PARM_DESC(link_quirk, "Don't clear the chain bit on a link TRB");
 static unsigned int quirks;
 module_param(quirks, uint, S_IRUGO);
 MODULE_PARM_DESC(quirks, "Bit flags for quirks to be enabled as default");
+
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+long xhci_mtk_test_unlock_ioctl(struct file *file, unsigned int cmd, unsigned long arg);
+static struct file_operations xhci_mtk_test_fops = {
+    .owner =		THIS_MODULE,
+    .read =		xhci_mtk_test_read,
+    .write =		xhci_mtk_test_write,
+    .unlocked_ioctl =	xhci_mtk_test_unlock_ioctl,
+    .open =		xhci_mtk_test_open,
+    .release =		xhci_mtk_test_release,
+};
+#endif
 
 /* TODO: copied from ehci-hcd.c - can this be refactored? */
 /*
@@ -200,7 +222,7 @@ int xhci_reset(struct xhci_hcd *xhci)
 	return ret;
 }
 
-#ifdef CONFIG_PCI
+#if defined (CONFIG_PCI) && !defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
 static int xhci_free_msi(struct xhci_hcd *xhci)
 {
 	int i;
@@ -450,6 +472,11 @@ static void compliance_mode_recovery(unsigned long arg)
 					"Attempting compliance mode recovery");
 			hcd = xhci->shared_hcd;
 
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+			temp |= (1 << 31);
+			writel(temp, xhci->usb3_ports[i]);
+#endif
+
 			if (hcd->state == HC_STATE_SUSPENDED)
 				usb_hcd_resume_root_hub(hcd);
 
@@ -499,6 +526,9 @@ static bool xhci_compliance_mode_recovery_timer_quirk_check(void)
 {
 	const char *dmi_product_name, *dmi_sys_vendor;
 
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+	return true;
+#endif
 	dmi_product_name = dmi_get_system_info(DMI_PRODUCT_NAME);
 	dmi_sys_vendor = dmi_get_system_info(DMI_SYS_VENDOR);
 	if (!dmi_product_name || !dmi_sys_vendor)
@@ -544,6 +574,10 @@ int xhci_init(struct usb_hcd *hcd)
 		xhci_dbg_trace(xhci, trace_xhci_dbg_init,
 				"xHCI doesn't need link TRB QUIRK");
 	}
+
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+	mtk_xhci_scheduler_init();
+#endif
 	retval = xhci_mem_init(xhci, GFP_KERNEL);
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init, "Finished xhci_init");
 
@@ -628,7 +662,11 @@ int xhci_run(struct usb_hcd *hcd)
 			"// Set the interrupt modulation register");
 	temp = readl(&xhci->ir_set->irq_control);
 	temp &= ~ER_IRQ_INTERVAL_MASK;
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+	temp |= (u32) 16;
+#else
 	temp |= (u32) 160;
+#endif
 	writel(temp, &xhci->ir_set->irq_control);
 
 	/* Set the HCD state before we enable the irqs */
@@ -653,6 +691,9 @@ int xhci_run(struct usb_hcd *hcd)
 		xhci_queue_vendor_command(xhci, command, 0, 0, 0,
 				TRB_TYPE(TRB_NEC_GET_FW));
 	}
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+	enableXhciAllPortPower(xhci);
+#endif
 	xhci_dbg_trace(xhci, trace_xhci_dbg_init,
 			"Finished xhci_run for USB2 roothub");
 	return 0;
@@ -1651,6 +1692,14 @@ int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	u32 drop_flag;
 	u32 new_add_flags, new_drop_flags;
 	int ret;
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+#if MTK_SCH_NEW
+	struct xhci_slot_ctx *slot_ctx;
+	struct sch_ep *sch_ep = NULL;
+	int isTT;
+	int ep_type;
+#endif
+#endif
 
 	ret = xhci_check_args(hcd, udev, ep, 1, true, __func__);
 	if (ret <= 0)
@@ -1698,6 +1747,40 @@ int xhci_drop_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 
 	xhci_endpoint_zero(xhci, xhci->devs[udev->slot_id], ep);
 
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+#if MTK_SCH_NEW
+	slot_ctx = xhci_get_slot_ctx(xhci, xhci->devs[udev->slot_id]->out_ctx);
+	if ((slot_ctx->tt_info & 0xff) > 0) {
+		isTT = 1;
+	}
+	else {
+		isTT = 0;
+	}
+	if (usb_endpoint_xfer_int(&ep->desc)) {
+		ep_type = USB_EP_INT;
+	}
+	else if (usb_endpoint_xfer_isoc(&ep->desc)) {
+		ep_type = USB_EP_ISOC;
+	}
+	else if (usb_endpoint_xfer_bulk(&ep->desc)) {
+		ep_type = USB_EP_BULK;
+	}
+	else
+		ep_type = USB_EP_CONTROL;
+
+	sch_ep = mtk_xhci_scheduler_remove_ep(udev->speed, usb_endpoint_dir_in(&ep->desc)
+		, isTT, ep_type, (mtk_u32 *)ep);
+	if (sch_ep != NULL) {
+		kfree(sch_ep);
+	}
+	else {
+		xhci_dbg(xhci, "[MTK]Doesn't find ep_sch instance when removing endpoint\n");
+	}
+#else
+	mtk_xhci_scheduler_remove_ep(xhci, udev, ep);
+#endif
+#endif
+
 	xhci_dbg(xhci, "drop ep 0x%x, slot id %d, new drop flags = %#x, new add flags = %#x\n",
 			(unsigned int) ep->desc.bEndpointAddress,
 			udev->slot_id,
@@ -1730,6 +1813,19 @@ int xhci_add_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 	u32 new_add_flags, new_drop_flags;
 	struct xhci_virt_device *virt_dev;
 	int ret = 0;
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+	struct xhci_ep_ctx *in_ep_ctx;
+#if MTK_SCH_NEW
+	struct xhci_slot_ctx *slot_ctx;
+	struct sch_ep *sch_ep;
+	int isTT;
+	int ep_type;
+	int maxp = 0;
+	int burst = 0;
+	int mult = 0;
+	int interval;
+#endif
+#endif
 
 	ret = xhci_check_args(hcd, udev, ep, 1, true, __func__);
 	if (ret <= 0) {
@@ -1796,6 +1892,56 @@ int xhci_add_endpoint(struct usb_hcd *hcd, struct usb_device *udev,
 		return -ENOMEM;
 	}
 
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+	in_ep_ctx = xhci_get_ep_ctx(xhci, in_ctx, ep_index);
+#if MTK_SCH_NEW
+	slot_ctx = xhci_get_slot_ctx(xhci, virt_dev->out_ctx);
+	if ((slot_ctx->tt_info & 0xff) > 0) {
+		isTT = 1;
+	}
+	else {
+		isTT = 0;
+	}
+	if (usb_endpoint_xfer_int(&ep->desc)) {
+		ep_type = USB_EP_INT;
+	}
+	else if (usb_endpoint_xfer_isoc(&ep->desc)) {
+		ep_type = USB_EP_ISOC;
+	}
+	else if (usb_endpoint_xfer_bulk(&ep->desc)) {
+		ep_type = USB_EP_BULK;
+	}
+	else
+		ep_type = USB_EP_CONTROL;
+
+	if (udev->speed == USB_SPEED_FULL || udev->speed == USB_SPEED_HIGH 
+		|| udev->speed == USB_SPEED_LOW) {
+		maxp = ep->desc.wMaxPacketSize & 0x7FF;
+		burst = ep->desc.wMaxPacketSize >> 11;
+		mult = 0;
+	}
+	else if (udev->speed == USB_SPEED_SUPER) {
+		maxp = ep->desc.wMaxPacketSize & 0x7FF;
+		burst = ep->ss_ep_comp.bMaxBurst;
+		mult = ep->ss_ep_comp.bmAttributes & 0x3;
+	}
+	interval = (1 << ((in_ep_ctx->ep_info >> 16) & 0xff));
+	sch_ep = kmalloc(sizeof(struct sch_ep), GFP_KERNEL);
+	if (mtk_xhci_scheduler_add_ep(udev->speed, usb_endpoint_dir_in(&ep->desc),
+		isTT, ep_type, maxp, interval, burst, mult, (mtk_u32 *)ep
+		, (mtk_u32 *)in_ep_ctx, sch_ep) != SCH_SUCCESS) {
+		xhci_err(xhci, "[MTK] not enough bandwidth\n");
+
+		return -ENOSPC;
+	}
+#else
+	if (mtk_xhci_scheduler_add_ep(xhci, udev, ep, in_ep_ctx) != SCH_SUCCESS) {
+		xhci_err(xhci, "[MTK] not enough bandwidth\n");
+
+		return -ENOSPC;
+	}
+#endif
+#endif
 	ctrl_ctx->add_flags |= cpu_to_le32(added_ctxs);
 	new_add_flags = le32_to_cpu(ctrl_ctx->add_flags);
 
@@ -4467,8 +4613,14 @@ static u16 xhci_call_host_update_timeout_for_endpoint(struct xhci_hcd *xhci,
 		u16 *timeout)
 {
 	if (state == USB3_LPM_U1)
+#if !defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+		if (xhci->quirks & XHCI_INTEL_HOST)
+#endif
 		return xhci_calculate_u1_timeout(xhci, udev, desc);
 	else if (state == USB3_LPM_U2)
+#if !defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+		if (xhci->quirks & XHCI_INTEL_HOST)
+#endif
 		return xhci_calculate_u2_timeout(xhci, udev, desc);
 
 	return USB3_LPM_DISABLED;
@@ -4853,7 +5005,9 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	hcd->self.no_sg_constraint = 1;
 
 	/* XHCI controllers don't stop the ep queue on short packets :| */
+#if !defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
 	hcd->self.no_stop_on_short = 1;
+#endif
 
 	if (usb_hcd_is_primary_hcd(hcd)) {
 		xhci = kzalloc(sizeof(struct xhci_hcd), GFP_KERNEL);
@@ -4925,6 +5079,10 @@ int xhci_gen_setup(struct usb_hcd *hcd, xhci_get_quirks_t get_quirks)
 	 */
 	if (xhci->quirks & XHCI_NO_64BIT_SUPPORT)
 		xhci->hcc_params &= ~BIT(0);
+
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+	setInitialReg();
+#endif
 
 	/* Set dma_mask and coherent_dma_mask to 64-bits,
 	 * if xHC supports 64-bit addressing */
@@ -5020,8 +5178,57 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_LICENSE("GPL");
 
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+static struct resource xhci_resouce[] = {
+    {
+        .name = "xhci-hcd",
+        .start = XHC_IO_START,
+        .end = XHC_IO_START + XHC_IO_LENGTH -1,
+        .flags = IORESOURCE_MEM,
+    }
+};
+
+static struct platform_device xhci_platform_dev = {
+	.name = "xhci-hcd",
+	.id   = -1,
+	.dev  = { 
+		.coherent_dma_mask = 0xffffffff,
+        },
+    .resource = xhci_resouce,
+};
+#endif
+
 static int __init xhci_hcd_init(void)
 {
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+	struct platform_device *pPlatformDev;
+
+	register_chrdev(XHCI_MTK_TEST_MAJOR, DEVICE_NAME, &xhci_mtk_test_fops);
+
+	u3phy_init();
+	if (u3phy_ops->u2_slew_rate_calibration) {
+                u3phy_ops->u2_slew_rate_calibration(u3phy);
+                u3phy_ops->u2_slew_rate_calibration(u3phy_p1);
+        }
+        else{
+                printk(KERN_ERR "WARN: PHY doesn't implement u2 slew rate calibration function\n");
+        }
+        u3phy_ops->init(u3phy);
+	reinitIP();
+
+	pPlatformDev = &xhci_platform_dev;
+	memset(pPlatformDev, 0, sizeof(struct platform_device));
+	pPlatformDev->name = "xhci-hcd";
+	pPlatformDev->id = -1;
+	pPlatformDev->dev.coherent_dma_mask = 0xffffffff;
+	pPlatformDev->dev.dma_mask = &pPlatformDev->dev.coherent_dma_mask;
+    pPlatformDev->resource = xhci_resouce; 
+    pPlatformDev->num_resources = ARRAY_SIZE(xhci_resouce);
+
+	platform_device_register(&xhci_platform_dev);
+
+#endif
+
 	/*
 	 * Check the compiler generated sizes of structures that must be laid
 	 * out in specific ways for hardware access.

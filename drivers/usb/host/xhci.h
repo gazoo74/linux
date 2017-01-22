@@ -33,6 +33,21 @@
 #include	"xhci-ext-caps.h"
 #include "pci-quirks.h"
 
+#if defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+#define XHC_IRQ (22 + 8)
+#define XHC_IO_START 0x1E1C0000
+#define XHC_IO_LENGTH 0x10000
+/* mtk scheduler bitmasks */
+#define BPKTS(p)	((p) & 0x3f)
+#define BCSCOUNT(p)	(((p) & 0x7) << 8)
+#define BBM(p)		((p) << 11)
+#define BOFFSET(p)	((p) & 0x3fff)
+#define BREPEAT(p)	(((p) & 0x7fff) << 16)
+#endif
+
+
+
+
 /* xHCI PCI Configuration Registers */
 #define XHCI_SBRN_OFFSET	(0x60)
 
@@ -1590,8 +1605,12 @@ struct xhci_hcd {
 	/* Compliance Mode Recovery Data */
 	struct timer_list	comp_mode_recovery_timer;
 	u32			port_status_u0;
+#ifdef CONFIG_USB_MT7621_XHCI_PLATFORM
+#define COMP_MODE_RCVRY_MSECS 5000
+#else
 /* Compliance Mode Timer Triggered every 2 seconds */
 #define COMP_MODE_RCVRY_MSECS 2000
+#endif
 };
 
 /* convert between an HCD pointer and the corresponding EHCI_HCD */
@@ -1738,6 +1757,26 @@ struct xhci_command *xhci_alloc_command(struct xhci_hcd *xhci,
 void xhci_urb_free_priv(struct xhci_hcd *xhci, struct urb_priv *urb_priv);
 void xhci_free_command(struct xhci_hcd *xhci,
 		struct xhci_command *command);
+
+#if defined (CONFIG_PCI) && !defined (CONFIG_USB_MT7621_XHCI_PLATFORM)
+/* xHCI PCI glue */
+int xhci_register_pci(void);
+void xhci_unregister_pci(void);
+#else
+static inline int xhci_register_pci(void) { return 0; }
+static inline void xhci_unregister_pci(void) {}
+#endif
+
+#if defined(CONFIG_USB_XHCI_PLATFORM) \
+	|| defined(CONFIG_USB_XHCI_PLATFORM_MODULE)
+int xhci_register_plat(void);
+void xhci_unregister_plat(void);
+#else
+static inline int xhci_register_plat(void)
+{ return 0; }
+static inline void xhci_unregister_plat(void)
+{  }
+#endif
 
 /* xHCI host controller glue */
 typedef void (*xhci_get_quirks_t)(struct device *, struct xhci_hcd *);
