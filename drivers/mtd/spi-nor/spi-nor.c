@@ -963,6 +963,7 @@ int spi_nor_scan(struct spi_nor *nor, const char *name, enum read_mode mode)
 
 	if (JEDEC_MFR(info->jedec_id) == CFI_MFR_ATMEL ||
 	    JEDEC_MFR(info->jedec_id) == CFI_MFR_INTEL ||
+	    JEDEC_MFR(info->jedec_id) == CFI_MFR_MACRONIX ||
 	    JEDEC_MFR(info->jedec_id) == CFI_MFR_SST) {
 		write_enable(nor);
 		write_sr(nor, 0);
