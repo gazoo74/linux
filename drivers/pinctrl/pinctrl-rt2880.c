@@ -28,6 +28,7 @@
 
 #define SYSC_REG_GPIO_MODE	0x60
 #define SYSC_REG_GPIO_MODE2	0x64
+#define SYSC_REG_AGPIO_MODE	0x3C
 
 struct rt2880_priv {
 	struct device *dev;
@@ -189,11 +190,8 @@ static int rt2880_pmx_group_get_groups(struct pinctrl_dev *pctrldev,
 {
 	struct rt2880_priv *p = pinctrl_dev_get_drvdata(pctrldev);
 
-	if (p->func[func]->group_count == 1)
-		*groups = &p->group_names[p->func[func]->groups[0]];
-	else
-		*groups = p->group_names;
-
+	if (p->func[func]->group_count != 0)
+		*groups = p->func[func]->group_names;
 	*num_groups = p->func[func]->group_count;
 
 	return 0;
@@ -206,8 +204,9 @@ static int rt2880_pmx_group_enable(struct pinctrl_dev *pctrldev,
 	struct rt2880_priv *p = pinctrl_dev_get_drvdata(pctrldev);
         u32 mode = 0;
 	u32 reg = SYSC_REG_GPIO_MODE;
-	int i;
+	int i, j;
 	int shift;
+	int group_func;
 
 	/* dont allow double use */
 	if (p->groups[group].enabled) {
@@ -219,9 +218,12 @@ static int rt2880_pmx_group_enable(struct pinctrl_dev *pctrldev,
 	p->func[func]->enabled = 1;
 
 	shift = p->groups[group].shift;
-	if (shift >= 32) {
+	if (shift >= 32 && shift < 64) {
 		shift -= 32;
 		reg = SYSC_REG_GPIO_MODE2;
+	}else if (shift >= 64) {
+		shift -= 64;
+		reg = SYSC_REG_AGPIO_MODE;
 	}
 	mode = rt_sysc_r32(reg);
 	mode &= ~(p->groups[group].mask << shift);
@@ -234,9 +236,15 @@ static int rt2880_pmx_group_enable(struct pinctrl_dev *pctrldev,
 	if (func == 0) {
 		mode |= p->groups[group].gpio << shift;
 	} else {
-		for (i = 0; i < p->func[func]->pin_count; i++)
-			p->gpio[p->func[func]->pins[i]] = 0;
-		mode |= p->func[func]->value << shift;
+		for (j = 0; j < p->groups[group].func_count; j++){
+			if (strcmp(p->groups[group].func[j].name, p->func[func]->name) == 0){
+				group_func = j;
+				for (i = 0; i < p->func[func]->pin_count; i++)
+					p->gpio[p->func[func]->pins[i]] = 0;
+		
+			}
+		}
+		mode |= p->groups[group].func[group_func].value << shift;
 	}
 	rt_sysc_w32(mode, reg);
 
@@ -319,10 +327,28 @@ static int rt2880_pinmux_index(struct rt2880_priv *p)
 	for (i = 0; i < p->group_count; i++) {
 		for (j = 0; j < p->groups[i].func_count; j++) {
 			f[c] = &p->groups[i].func[j];
-			f[c]->groups = devm_kzalloc(p->dev, sizeof(int), GFP_KERNEL);
+			f[c]->groups = devm_kzalloc(p->dev, sizeof(int) * p->group_count, GFP_KERNEL);
+			if (!f[c]->groups)
+				return -1;
+			f[c]->group_names = devm_kzalloc(p->dev, sizeof(char *) * p->group_count, GFP_KERNEL);
+			if (!f[c]->group_names)
+				return -1;
 			f[c]->groups[0] = i;
 			f[c]->group_count = 1;
 			c++;
+		}
+	}
+	f[0]->group_names = p->group_names;
+	for (c = 1; c < p->func_count; c++) {
+		f[c]->group_count = 0;
+		for (i = 0; i < p->group_count; i++) {
+			for (j = 0; j < p->groups[i].func_count; j++) {
+				if (strcmp(f[c]->name, p->groups[i].func[j].name) == 0) {
+					f[c]->groups[f[c]->group_count] = i;
+					f[c]->group_names[f[c]->group_count] = p->groups[i].name;
+					f[c]->group_count++;
+				}
+			}
 		}
 	}
 	return 0;
@@ -447,7 +473,6 @@ static int rt2880_pinmux_probe(struct platform_device *pdev)
 		range->pin_base = range->base;
 		pinctrl_add_gpio_range(dev, range);
 	}
-
 	return 0;
 }
 

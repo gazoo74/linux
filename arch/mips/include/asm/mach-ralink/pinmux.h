@@ -9,7 +9,9 @@
 #ifndef _RT288X_PINMUX_H__
 #define _RT288X_PINMUX_H__
 
-#define FUNC(name, value, pin_first, pin_count) { name, value, pin_first, pin_count }
+#define FUNC(name, value, pin_first, pin_count) \
+	{ name, value, pin_first, pin_count }
+
 #define GRP(_name, _func, _mask, _shift) \
 	{ .name = _name, .mask = _mask, .shift = _shift, \
 	  .func = _func, .gpio = _mask, \
@@ -31,6 +33,7 @@ struct rt2880_pmx_func {
 	int *pins;
 
 	int *groups;
+	int **group_names;
 	int group_count;
 
 	int enabled;
