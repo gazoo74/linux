@@ -24,6 +24,7 @@ enum ralink_soc_type {
 	MT762X_SOC_MT7620N,
 	MT762X_SOC_MT7621AT,
 	MT762X_SOC_MT7628AN,
+	MT762X_SOC_MT7688,
 };
 extern enum ralink_soc_type ralink_soc;
 
