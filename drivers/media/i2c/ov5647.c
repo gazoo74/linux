@@ -591,16 +591,22 @@ static int ov5647_probe(struct i2c_client *client)
 	sensor->pad.flags = MEDIA_PAD_FL_SOURCE;
 	sd->entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	ret = media_entity_pads_init(&sd->entity, 1, &sensor->pad);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(dev, "could not initialize entity pads: %d\n", ret);
 		goto mutex_remove;
+	}
 
 	ret = ov5647_detect(sd);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(dev, "could not detect ov5647: %d\n", ret);
 		goto error;
+	}
 
 	ret = v4l2_async_register_subdev(sd);
-	if (ret < 0)
+	if (ret < 0) {
+		dev_err(dev, "could not register v4l2 subdevice: %d\n", ret);
 		goto error;
+	}
 
 	dev_dbg(dev, "OmniVision OV5647 camera driver probed\n");
 	return 0;
